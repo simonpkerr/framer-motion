@@ -83,11 +83,13 @@ const TooltipPointer = styled.div`
   height: 0;
   border-left: 10px solid transparent;
   border-right: 10px solid transparent;
-  border-top: 15px solid #dedede;
   position: absolute;
-  bottom: -13px;
-  ${({ left }) => css`
+  ${({ left, bottom, top }) => css`
+    bottom: ${bottom || 'auto'};
+    top: ${top || 'auto'};
     left: ${left};
+    border-bottom: ${top ? '15px solid #dedede' : undefined};
+    border-top: ${bottom ? '15px solid #dedede' : undefined};
   `}
 `;
 
@@ -102,7 +104,7 @@ const Wrapper = styled(motion.div)`
   border-radius: 1rem;
   background: #dedede;
   position: absolute;
-  box-shadow: 3px -3px 3px 0 rgba(0, 0, 0, 0.3);
+  /* box-shadow: 3px -3px 3px 0 rgba(0, 0, 0, 0.3); */
 `;
 
 const slideDownVariants = {
@@ -124,14 +126,7 @@ const slideDownVariants = {
 };
 
 const slideUpVariants = {
-  active: {
-    opacity: 1,
-    y: 0,
-    transition: {
-      duration: 0.4,
-      ease: 'easeOut',
-    },
-  },
+  ...slideDownVariants,
   inactive: {
     opacity: 0,
     y: 40,
@@ -153,7 +148,10 @@ export const Tooltip = ({ target, children, ...props }) => {
   const ref = useRef(null);
   const [position, setPosition] = useState([0, 0]);
   const [motionProps, setMotionProps] = useState(baseMotionProps);
-  const [pointerPosition, setPointerPosition] = useState('4%');
+  const [pointerPosition, setPointerPosition] = useState({
+    left: '4%',
+    bottom: '-13px',
+  });
   const active = activeTooltip === target;
 
   useEffect(() => {
@@ -161,24 +159,34 @@ export const Tooltip = ({ target, children, ...props }) => {
 
     const updatePosition = () => {
       const marker = document.getElementById(target).getBoundingClientRect();
-      setPointerPosition(marker.left > window.innerWidth - 100 ? '89%' : '4%');
+      const appearLeft = marker.left > window.innerWidth * 0.8;
+      const appearAbove = marker.top > ref.current.clientHeight * 1.2;
+      const pointerPositionTop = appearAbove
+        ? { bottom: '-13px' }
+        : { top: '-13px' };
+      setPointerPosition({
+        left: appearLeft ? '90%' : '5%',
+        ...pointerPositionTop,
+      });
       setPosition([
-        marker.left > window.innerWidth - 100
+        appearLeft
           ? marker.left +
             window.scrollX -
             ref.current.clientWidth +
             marker.width * 1.5
           : marker.left + window.scrollX - marker.width / 2,
-        marker.top > ref.current.clientHeight
+        appearAbove
           ? marker.top +
             window.scrollY -
             ref.current.clientHeight -
             marker.height / 2
-          : marker.top +
-            window.scrollY +
-            ref.current.clientHeight +
-            marker.height / 2,
+          : marker.top + window.scrollY + marker.height * 1.5,
       ]);
+      setMotionProps(
+        appearAbove
+          ? { ...baseMotionProps, ...{ variants: slideDownVariants } }
+          : { ...baseMotionProps, ...{ variants: slideUpVariants } },
+      );
     };
 
     updatePosition();
@@ -199,7 +207,7 @@ export const Tooltip = ({ target, children, ...props }) => {
           {...props}
           {...motionProps}
         >
-          <TooltipPointer left={pointerPosition} />
+          <TooltipPointer {...pointerPosition} />
           {children}
         </Wrapper>
       )}
